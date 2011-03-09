@@ -1,0 +1,20 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/ethan/Programming/Spirit/src/main.cpp
+iostream
+-
+boost/spirit/include/qi.hpp
+-
+string
+-
+boost/bind.hpp
+-
+vector
+-
+

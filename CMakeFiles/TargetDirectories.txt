@@ -1,0 +1,1 @@
+/home/ethan/Programming/Spirit/src/CMakeFiles/App.dir

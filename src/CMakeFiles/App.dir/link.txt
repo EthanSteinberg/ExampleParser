@@ -1,0 +1,1 @@
+/usr/bin/c++   -Wall -march=native -O2   CMakeFiles/App.dir/main.cpp.o  -o ../App -rdynamic 

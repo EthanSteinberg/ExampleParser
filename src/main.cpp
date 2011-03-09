@@ -1,89 +1,227 @@
 #include <iostream>
-#include <cmath>
+#include <boost/spirit/include/qi.hpp>
 #include <string>
+#include <boost/bind.hpp>
 #include <vector>
-#include <fstream>
-#include <cstdio>
-#include <sstream>
-#include <set>
-#include <utility>
-#include <map>
 
-using namespace std;
 
-map<pair<unsigned int, unsigned int>, unsigned int > cache;
+namespace qi = boost::spirit::qi;
+namespace ascii = boost::spirit::ascii;
 
-int findMax(unsigned int row, unsigned int column, vector< vector<int> > &array,int side)
+using boost::ref;
+using boost::bind;
+
+using std::string;
+using std::cout;
+using std::endl;
+using std::vector;
+
+template <typename Iterator>
+bool parse_numbers(Iterator first, Iterator lasti,double &number);
+
+double parse(vector<char> &opers, vector<double> &nums);
+void takeChar(char , vector<char> &);
+void takeDouble(double , vector<double> & );
+
+int main(int argv, char **argc)
 {
-   if (row >= array.size())
+   if (argv == 1)
    {
-      return 0;
+      cout<<"Wrong number of arguments"<<endl;
+      return -2;
    }
 
-   if (cache.count(make_pair(row,column)))
+   string mySrc = "";   
+
+   for (int i = 1; i< argv;i++)
    {
-      return cache[make_pair(row,column)];
+      mySrc += ' ';
+      mySrc += argc[i];
    }
 
-   int left;
-   int right;
+   cout<<mySrc<<endl;
 
-   if (side == 0)
-   {  
-      left = findMax(row + 1,column,array,0);
-      right = findMax(row + 1,column +1,array,1);
+   double number;
+   if (parse_numbers(mySrc.begin(),mySrc.end(),number))
+   {
+      cout<<"Yay it worked, with a result of "<<number<<endl;
    }
-
+   
    else
    {
-      right = findMax(row + 1,column +1,array,1);
-      left = findMax(row + 1,column,array,0);
+      cout<<"No it did not work."<<endl;
    }
-
-   int max = (left > right ? left: right) + array.at(row).at(column);
-
-   cache.insert(make_pair(make_pair(row,column),max));
-   return max;
 }
 
-
-int main()
+template <typename Iterator>
+bool parse_numbers(Iterator first, Iterator last,double &number)
 {
-   vector< vector<int> > array;
-   vector<int> empty;
+    vector<double> nums;
+    vector<char> opers;
 
-   ifstream file("lol");
+    using qi::double_;
+    using qi::char_;
+    using qi::phrase_parse;
+    using ascii::space;
+
+    bool r = phrase_parse(
+        first,                          
+        last,                           
+        *char_('(')[bind(takeChar,_1,ref(opers))] >> double_[bind(takeDouble,_1,ref(nums))] >> *(char_[bind(takeChar,_1,ref(opers))] >> *char_("(")[bind(takeChar,_1,ref(opers))] >> double_[bind(takeDouble,_1,ref(nums))] >> *char_(')')[bind(takeChar,_1,ref(opers))] ),
+        space                           
+    );
+
+    if (first != last) // fail if we did not get a full match
+        return false;
    
-   stringstream lol;
-   int i =0;
-   while (file.get(*lol.rdbuf()))
+   number = parse(opers,nums);
+
+    return r;
+}
+
+void takeChar(char lol,vector<char> &opers)
+{
+   //cout<<"I got a char "<<lol<<endl;
+   opers.push_back(lol);
+}
+
+void parseAdd(vector<char> &opers, vector<double> &nums,int start, int end, int &mod)
+{
+   int i = start;
+   while ( i< end)
    {
-      array.push_back(empty);
+            
+      char last = opers[i]; 
+      double & num = nums[i];
+      const double & lol = nums[i + 1];
 
-      int test;
-      while (lol>>test)
-      {   
-         array[i].push_back(test);
-      }
+      if (last != '-' && last != '+')
+      {  
+         //cout<<"Not addition or subtraction, so skipping"<<endl;
+         i++;
+         continue;
+      } 
 
-      lol.clear();
-      file.get();
-      i++;
-   }
-
-   for (int unsigned i = 0;i<array.size();i++)
-   {   
-      for (unsigned int l =0;l<array[i].size();l++)
+      //cout<<"Doing "<<last<<" to "<<num<<" and "<<lol<<endl;
+      switch (last)
       {
-         cout<<array[i][l]<<' ';
+         case '-':
+            num-=lol;
+            break;
+
+         case '+':
+            num+=lol;
+            break;
+
+         default:
+            cout<<"Match did not work"<<endl;
       }
-      cout<<endl;
-   }
-
-
-   int max = findMax(0,0,array,0);
-
-   cout<<max<<endl;
-
    
+      nums.erase(nums.begin() + i + 1);
+      opers.erase(opers.begin() + i);
+      end--;
+      mod--;
+   }
+}
+
+void parseMult(vector<char> &opers, vector<double> &nums,int start,int end,int &mod)
+{
+   int i =start;
+   while ( i< end)
+   {
+            
+      char last = opers[i]; 
+      double & num = nums[i];
+      const double & lol = nums[i + 1];
+
+      if (last != '/' && last != '*')
+      {  
+         //cout<<"Not a division, so skipping"<<endl;
+         i++;
+         continue;
+      } 
+
+      //cout<<"Doing "<<last<<" to "<<num<<" and "<<lol<<endl;
+      switch (last)
+      {
+         case '*':
+            num*=lol;
+            break;
+      
+         case '/':
+            num/=lol;
+            break;
+      
+         default:
+            cout<<"Match did not work"<<endl;
+      }
+   
+      nums.erase(nums.begin() + i + 1);
+      opers.erase(opers.begin() + i);
+      end--;
+      mod--;
+   }
+}
+
+void parseParen(vector<char> &opers, vector<double> &nums, int start,int &end)
+{
+   int i =start;
+   while ( i< end)
+   {
+      char last = opers[i]; 
+      double & num = nums[i];
+      const double & lol = nums[i + 1];
+
+      if (last != '(' && last != ')')
+      {  
+         cout<<"This "<<last<<" at "<<i<<" is not a parenthesis, so skipping"<<endl;
+         i++;
+         continue;
+      } 
+      
+      opers.erase(opers.begin() + i);
+      end--;
+
+      cout<<"Doing "<<last<<" to "<<num<<" and "<<lol<<endl;
+      switch (last)
+      {
+         case '(':
+            parseParen(opers,nums,i,end);
+            break;
+      
+         case ')':
+            parseMult(opers,nums,start,i,end);
+            parseAdd(opers,nums,start,i,end);
+            cout<<"Parenthesis ended"<<endl;
+            return;
+            break;
+      
+         default:
+            cout<<"Match did not work"<<endl;
+      }
+   
+   }
+} 
+
+double parse(vector<char> &opers, vector<double> &nums)
+{
+   int lol = 0;
+   int end = opers.size();
+
+   parseParen(opers,nums,0,end);
+   //cout<<"Finished parsing parentheses"<<endl;
+
+   end = opers.size();
+   parseMult(opers,nums,0,end,lol);
+
+   end = opers.size();
+   parseAdd(opers,nums,0,end,lol);
+   
+   return nums[0];
+} 
+
+void takeDouble(double lol,vector<double> &nums)
+{
+   //cout<<"I got a double "<<lol<<endl;
+   nums.push_back(lol);
 }
